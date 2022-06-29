@@ -1,0 +1,67 @@
+{
+  "name": "looksrare-js",
+  "version": "1.0.3",
+  "description": "Javascript SDK for the looksrare protocol",
+  "main": "lib/index.js",
+  "type": "lib/index.d.ts",
+  "author": "Web3 Project Developers",
+  "license": "MIT",
+  "homepage": "https://www.npmjs.com/package/looksrare-js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/web3w/looksrare-js.git"
+  },
+  "bugs": {
+    "url": "https://github.com/web3w/looksrare-js/issues"
+  },
+  "files": [
+    "lib"
+  ],
+  "scripts": {
+    "release": "tsc && npm publish && git tag $npm_package_version && git push --tag",
+    "dev:tsc": "tsc -w -p tsconfig.json",
+    "eslint": "eslint --fix src --ext .ts --max-warnings=0",
+    "build:node": "webpack -c config/webpack.node.config.js",
+    "build:web": "webpack -c config/webpack.config.js",
+    "start": "webpack --watch",
+    "dev": "webpack serve --open -c config/webpack.config.js",
+    "link": "sudo npm link seaport-js",
+    "test": "cross-env TS_NODE_PROJECT='test/tsconfig.test.json' mocha test/**/**.test.ts",
+    "cover": "nyc --reporter=html npm run test"
+  },
+  "dependencies": {
+    "@looksrare/sdk": "^0.7.4",
+    "query-string": "^7.1.1",
+    "web3-accounts": "1.2.6",
+    "web3-assert": "^1.0.1",
+    "web3-wallets": "^2.1.2"
+  },
+  "devDependencies": {
+    "@types/node": "^12.20.41",
+    "@typescript-eslint/eslint-plugin": "^5.29.0",
+    "@typescript-eslint/parser": "^5.29.0",
+    "assert": "^2.0.0",
+    "babel-loader": "^8.2.4",
+    "buffer": "^6.0.3",
+    "crypto-browserify": "3.12.0",
+    "css-loader": "^6.7.1",
+    "eslint": "^7.32.0",
+    "https-browserify": "^1.0.0",
+    "os-browserify": "^0.3.0",
+    "process": "^0.11.10",
+    "stream-browserify": "^3.0.0",
+    "stream-http": "^3.2.0",
+    "style-loader": "^3.3.1",
+    "ts-loader": "^5.3.3",
+    "ts-node": "~10.7.0",
+    "typescript": "~4.6.4",
+    "url": "^0.11.0",
+    "web3-abi-coder": "^1.1.2",
+    "webpack": "^5.64.1",
+    "webpack-cli": "^4.9.1",
+    "webpack-dev-server": "^4.5.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
