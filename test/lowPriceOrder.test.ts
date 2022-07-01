@@ -1,10 +1,11 @@
 import * as secrets from '../../secrets.json'
 import {OrderSide, SellOrderParams} from "web3-accounts";
-import {LooksRareAgent} from "../src";
+import {LooksRareSDK} from "../src";
+import {NULL_ADDRESS} from "web3-wallets";
 
 
 // const buyer = '0x9F7A946d935c8Efc7A8329C0d894A69bA241345A';
-const seller = '0x32f4B63A46c1D12AD82cABC778D75aBF9889821a';
+const seller = '0x0A56b3317eD60dC4E1027A63ffbE9df6fb102401';
 const chainId = 4
 
 export const apiConfig = {
@@ -13,13 +14,13 @@ export const apiConfig = {
         apiTimeout: 200000,
     },
     4: {
-        // proxyUrl: 'http://127.0.0.1:7890',
+        proxyUrl: 'http://127.0.0.1:7890',
         apiTimeout: 200000,
     }
 }
 
 
-const eleSDK = new LooksRareAgent({
+const sdk = new LooksRareSDK({
     chainId,
     address: seller,
     privateKeys: [secrets.accounts[seller]]
@@ -30,8 +31,8 @@ const eleSDK = new LooksRareAgent({
             const asset = {
                 "chainId": 4,
                 "name": "Doodle #73",
-                "tokenId": "73",
-                "tokenAddress": "0x3b06635c6429d0ffcbe3798b860d065118269cb7",
+                "tokenId": "8001",
+                "tokenAddress": "0x5fecbbbaf9f3126043a48a35eb2eb8667d469d53",
                 "schemaName": "ERC721",
                 "data": "https://storage.nfte.ai/nft/img/eth/0x4/3412474796512747127.webp",
                 "collection": {
@@ -44,16 +45,32 @@ const eleSDK = new LooksRareAgent({
                 startAmount: Number('0.52'),
                 quantity: 1,
                 expirationTime: Math.round(new Date().getTime() / 1000 + 86000),
+                nonce: 1
             } as SellOrderParams
 
 
-            // const assetsRoyalt = await eleSDK.getAssetsFees([asset.tokenAddress])
+            // const assetsRoyalt = await sdk.getAssetsFees([asset.tokenAddress])
 
-            // const approve = await eleSDK.getOrderApprove(buyParams,OrderSide.Sell)
-            const sellData = await eleSDK.createSellOrder(buyParams)
+            // const approve = await sdk.getOrderApprove(buyParams,OrderSide.Sell)
+            const sellData = await sdk.createSellOrder(buyParams)
             const orderStr = JSON.stringify(sellData)
 
-            const result = await eleSDK.postOrder(orderStr)
+            const adjestOrder = await sdk.adjustOrder({
+                orderStr,
+                basePrice: 1e10.toString(),
+                royaltyFeeAddress: NULL_ADDRESS,
+                royaltyFeePoints: 0
+            })
+
+            const nonec = adjestOrder.nonce.toString()
+            const tx = await sdk.cancelOrders([nonec])
+
+            await tx.wait()
+
+            console.log(tx.hash)
+            // const adjestOrderStr = JSON.stringify(adjestOrder)
+
+            const result = await sdk.postOrder(orderStr)
             console.log(result)
             // console.assert(result.success, result.message)
             // const order = result.data
@@ -61,7 +78,7 @@ const eleSDK = new LooksRareAgent({
             // console.log(order.data.id || order)
 
 
-            // const tx = await eleSDK.acceptOrder(sellOrderStr,{standard})
+            // const tx = await sdk.acceptOrder(sellOrderStr,{standard})
             // await tx.wait()
             // console.log(tx.hash)
             //
@@ -73,10 +90,10 @@ const eleSDK = new LooksRareAgent({
             //     protocol
             // } as LowerPriceOrderParams
             // //
-            // const sellLowData = await eleSDK.createLowerPriceOrder(lowParams)
+            // const sellLowData = await sdk.createLowerPriceOrder(lowParams)
             // const orderStr = JSON.stringify(sellLowData)
 
-            // const cancelTx = await eleSDK.cancelOrders([order.exchangeData], {standard: protocol})
+            // const cancelTx = await sdk.cancelOrders([order.exchangeData], {standard: protocol})
             // await cancelTx.wait()
             // console.log('Cancel success', cancelTx.hash)
 

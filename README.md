@@ -1,6 +1,9 @@
 # looksrare-js<!-- omit in toc -->
 
-SDK for the LooksRare protocol 
+SDK for the LooksRare protocol
+
+//https://github.com/LooksRare/looksrare-sdk
+//https://etherscan.io/address/0x59728544B08AB483533076417FbBB2fD0B17CE3a#writeContract
 
 ## Installation
 
@@ -87,7 +90,7 @@ extends `Asset`):
 
 ```TypeScript
 
- 
+
 
 
 const assetsQuery = {
@@ -99,7 +102,7 @@ const assetsQuery = {
 } as AssetsQueryParams
 
 const assetFee = await looksrare.getAssetsFees([asset_contract_addresses])
- 
+
 ```
 
 #### Checking Balances and Ownerships
