@@ -284,7 +284,7 @@ export class LooksRareSDK extends EventEmitter implements ExchangetAgent {
 
         const fees: FeesInfo[] = []
         for (const asset of assets) {
-            const royalty = await this.royaltyFeeRegistry.royaltyInfo(asset, 100)
+            const royalty = await this.royaltyFeeRegistry.royaltyInfo(asset, 10000)
             fees.push(<FeesInfo>{
                 royaltyFeeAddress: royalty[0],
                 royaltyFeePoints: royalty[1].toNumber(),
