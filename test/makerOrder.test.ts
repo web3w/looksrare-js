@@ -2,7 +2,6 @@ import {ethers, BigNumber} from "ethers";
 import {signMakerOrder, addressesByNetwork, SupportedChainId, MakerOrder} from "@looksrare/sdk";
 import {fetchJson, getProvider} from "web3-wallets";
 import * as secrets from '../../../secrets.json'
-import {JsonRpcSigner} from "./JsonRpcSigner";
 import {SignerProvider} from "web3-signer-provider";
 // import JsonRpcProvider from "ethers";
 

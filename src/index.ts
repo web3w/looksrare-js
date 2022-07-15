@@ -7,6 +7,7 @@ import {
     RoyaltyFeeRegistryAbi,
     LooksRareExchangeAbi,
     TransferSelectorNFTAbi,
+    RoyaltyFeeSetterAbi,
     Addresses
 } from "@looksrare/sdk";
 import EventEmitter from 'events'
@@ -54,6 +55,7 @@ export class LooksRareSDK extends EventEmitter implements ExchangetAgent {
     public api: LooksRareAPI
     public contractAddresses: Addresses
     public royaltyFeeRegistry: Contract
+    public royaltyFeeSetter: Contract
     public transferSelectorNFT: Contract
     public exchange: Contract
 
@@ -68,6 +70,7 @@ export class LooksRareSDK extends EventEmitter implements ExchangetAgent {
         this.royaltyFeeRegistry = new Contract(contractAddresses.ROYALTY_FEE_REGISTRY, RoyaltyFeeRegistryAbi, this.userAccount.signer)
         this.transferSelectorNFT = new Contract(contractAddresses.TRANSFER_SELECTOR_NFT, TransferSelectorNFTAbi, this.userAccount.signer);
         this.exchange = new Contract(contractAddresses.EXCHANGE, LooksRareExchangeAbi, this.userAccount.signer)
+        this.royaltyFeeSetter = new Contract(contractAddresses.ROYALTY_FEE_SETTER, RoyaltyFeeSetterAbi, this.userAccount.signer)
     }
 
     async getOrderApprove(params: CreateOrderParams, side: OrderSide) {
@@ -294,6 +297,28 @@ export class LooksRareSDK extends EventEmitter implements ExchangetAgent {
         }
 
         return fees
+
+    }
+
+    async updateRoyaltyInfoForCollectionIfOwner(params: { collection: string, setter: string, receiver: string, fee: number }) {
+
+        // const royaltyFeeRegistry = await this.royaltyFeeSetter.royaltyFeeRegistry()
+
+        const isCheck = await this.royaltyFeeSetter.checkForCollectionSetter(params.collection)
+        console.log(isCheck.toString())
+        if (isCheck[1] == 4) {
+            throw new Error("not owner()")
+        }
+
+        const feeLimit = await this.royaltyFeeRegistry.royaltyFeeLimit()
+        if (params.fee > feeLimit.toNumber()) {
+            throw new Error("Set fee>feeLimit")
+        }
+
+        //RoyaltyFeeManager: https://etherscan.io/address/0x7358182024c9f1b2e6b0153e60bf6156b7ef4906#code
+        //RoyaltyFeeSetter: https://etherscan.io/address/0x66466107d9cae4da0176a699406419003f3c27a8#readContract
+        const {collection, setter, receiver, fee} = params
+        return this.royaltyFeeSetter.updateRoyaltyInfoForCollectionIfOwner(collection, setter, receiver, fee.toString())
 
     }
 
