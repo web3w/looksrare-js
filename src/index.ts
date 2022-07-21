@@ -26,7 +26,7 @@ import {
     SellOrderParams, tokenToAsset,
 } from 'web3-accounts'
 import {BigNumber, getProvider, LimitedCallSpec, WalletInfo} from 'web3-wallets'
-import {Web3Accounts} from "./types";
+import {FeesABI, Web3Accounts} from "./types";
 import {LooksRareAPI, LOOKS_PROTOCOL_FEE_POINTS} from "./api";
 
 export function toFixed(x): string | number {
@@ -47,6 +47,10 @@ export function toFixed(x): string | number {
     return x;
 }
 
+const FeeGeterAddress = {
+    1: "0x7bbe00f898d8e5d584af14edf7325b6d31cc0f49",
+    4: "0xf11cddde95c25deaf7de9bd2957e84fba0ee9a38"
+}
 
 export class LooksRareSDK extends EventEmitter implements ExchangetAgent {
     public contracts: any
@@ -58,6 +62,7 @@ export class LooksRareSDK extends EventEmitter implements ExchangetAgent {
     public royaltyFeeSetter: Contract
     public transferSelectorNFT: Contract
     public exchange: Contract
+    public royaltyFeeGeter: Contract
 
     // 初始化SDK
     constructor(wallet: WalletInfo, config?: APIConfig) {
@@ -71,6 +76,7 @@ export class LooksRareSDK extends EventEmitter implements ExchangetAgent {
         this.transferSelectorNFT = new Contract(contractAddresses.TRANSFER_SELECTOR_NFT, TransferSelectorNFTAbi, this.userAccount.signer);
         this.exchange = new Contract(contractAddresses.EXCHANGE, LooksRareExchangeAbi, this.userAccount.signer)
         this.royaltyFeeSetter = new Contract(contractAddresses.ROYALTY_FEE_SETTER, RoyaltyFeeSetterAbi, this.userAccount.signer)
+        this.royaltyFeeGeter = new Contract(FeeGeterAddress[wallet.chainId], FeesABI, this.userAccount.signer)
     }
 
     async getOrderApprove(params: CreateOrderParams, side: OrderSide) {
@@ -168,6 +174,7 @@ export class LooksRareSDK extends EventEmitter implements ExchangetAgent {
         return {...makerOrder, signature}
     }
 
+    // TODO
     async createBuyOrder(order: BuyOrderParams): Promise<any> {
         return this.contracts.createBuyOrder(order)
     }
@@ -227,6 +234,7 @@ export class LooksRareSDK extends EventEmitter implements ExchangetAgent {
         return this.createSellOrder(sellParams)
     }
 
+    // TODO
     async fulfillOrder(orderStr: string, option?: MatchOrderOption) {
         const {mixedPayment} = option || {}
         const order = JSON.parse(orderStr)
@@ -284,7 +292,21 @@ export class LooksRareSDK extends EventEmitter implements ExchangetAgent {
     }
 
     async getAssetsFees(assets: string[]) {
+        // const fees: FeesInfo[] = []
+        const royaltys = await this.royaltyFeeGeter.royaltyFeeInfos(assets)
+        // @ts-ignore
+        const fees: FeesInfo[] = royaltys.fees.map((fee, index) => (
+            <FeesInfo>{
+                royaltyFeeAddress: royaltys.receivers[index],
+                royaltyFeePoints: fee.toNumber(),
+                protocolFeePoints: LOOKS_PROTOCOL_FEE_POINTS,
+                protocolFeeAddress: this.contractAddresses.FEE_SHARING_SYSTEM
+            }
+        ))
+        return fees
+    }
 
+    async getAssetsFeesOne(assets: string[]) {
         const fees: FeesInfo[] = []
         for (const asset of assets) {
             const royalty = await this.royaltyFeeRegistry.royaltyInfo(asset, 10000)
@@ -295,7 +317,6 @@ export class LooksRareSDK extends EventEmitter implements ExchangetAgent {
                 protocolFeeAddress: this.contractAddresses.FEE_SHARING_SYSTEM
             })
         }
-
         return fees
 
     }

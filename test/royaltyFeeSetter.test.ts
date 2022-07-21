@@ -8,7 +8,7 @@ import {apiConfig} from "./lowPriceOrder.test";
 // import JsonRpcProvider from "ethers";
 
 const seller = '0x0A56b3317eD60dC4E1027A63ffbE9df6fb102401';
-const chainId = 4
+const chainId = 1
 
 const wallet = {
     chainId,
@@ -18,14 +18,18 @@ const wallet = {
 
 const sdk = new LooksRareSDK(wallet);
 ;(async () => {
-    const tx = await sdk.updateRoyaltyInfoForCollectionIfOwner({
-        collection: "0x6b0d7ed64d8facde81b76f8ea6598808ee93fb0b",
-        setter: seller,
-        receiver: seller,
-        fee: 500
-    })
-    console.log(tx.hash)
-    await tx.wait()
+    const tx = await sdk.getAssetsFees(["0x34d85c9cdeb23fa97cb08333b511ac86e1c4e258","0x6b0d7ed64d8facde81b76f8ea6598808ee93fb0b"])
+    console.log(tx)
+
+
+    // const tx = await sdk.updateRoyaltyInfoForCollectionIfOwner({
+    //     collection: "0x6b0d7ed64d8facde81b76f8ea6598808ee93fb0b",
+    //     setter: seller,
+    //     receiver: seller,
+    //     fee: 500
+    // })
+    // console.log(tx.hash)
+    // await tx.wait()
 
 })()
 

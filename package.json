@@ -1,6 +1,6 @@
 {
   "name": "looksrare-js",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Javascript SDK for the looksrare protocol",
   "main": "lib/index.js",
   "type": "lib/index.d.ts",
@@ -19,22 +19,15 @@
   ],
   "scripts": {
     "release": "tsc && npm publish && git tag $npm_package_version && git push --tag",
-    "dev:tsc": "tsc -w -p tsconfig.json",
-    "eslint": "eslint --fix src --ext .ts --max-warnings=0",
-    "build:node": "webpack -c config/webpack.node.config.js",
-    "build:web": "webpack -c config/webpack.config.js",
-    "start": "webpack --watch",
-    "dev": "webpack serve --open -c config/webpack.config.js",
-    "link": "sudo npm link seaport-js",
-    "test": "cross-env TS_NODE_PROJECT='test/tsconfig.test.json' mocha test/**/**.test.ts",
-    "cover": "nyc --reporter=html npm run test"
+    "start": "tsc -w -p tsconfig.json",
+    "link": "sudo npm link looksrare-js"
   },
   "dependencies": {
     "@looksrare/sdk": "^0.7.4",
     "query-string": "^7.1.1",
     "web3-assert": "^1.0.2",
-    "web3-accounts": "1.2.10",
-    "web3-wallets": "^2.1.9"
+    "web3-accounts": "1.2.20",
+    "web3-wallets": "^2.1.19"
   },
   "devDependencies": {
     "ts-node": "~10.7.0",
