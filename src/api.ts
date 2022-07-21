@@ -2,7 +2,7 @@ import {
     APIConfig, OrderSide, sleep, BaseFetch
 } from "./types";
 
-export const LOOKS_API_KEY = "" //2.5%
+export const LOOKS_API_KEY = ""
 
 export const LOOKS_PROTOCOL_FEE_POINTS = 200
 //Api Timeout
@@ -56,25 +56,18 @@ export class LooksRareAPI extends BaseFetch {
         }
     }
 
-//https://looksrare.github.io/api-docs/#/Orders/OrderController.getOrders
+    //https://looksrare.github.io/api-docs/#/Orders/OrderController.getOrders
     public async getOrders(queryParams: { collection: string, tokenId: string }, retries = 2): Promise<{ orders: any, count: number }> {
         try {
-
-            const json = await this.get(`/orders`, queryParams, {
-                headers: {
-                    // "X-Looks-Api-Key": this.apiKey || OPENSEA_API_KEY
-                }
-            })
-            if (!json.data) {
-                throw new Error('Not  found: no  matching  order  found')
+            const json = await this.get(`/orders`, queryParams)
+            if (json.message) {
+                throw new Error(json.message)
             }
-            const orders: any[] = []
-            for (let i = 0; i < json.orders.length; i++) {
-
-            }
+            debugger
+            const orders: any[] = json.data
             return {
                 orders,
-                count: json.count
+                count: orders.length
             }
         } catch (error: any) {
             this.throwOrContinue(error, retries)
