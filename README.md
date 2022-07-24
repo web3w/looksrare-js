@@ -19,11 +19,11 @@ To get started, create a new OpenSeaJS client, called an Openlooksrare 🚢, usi
 
 ```JavaScript
 import {LooksRareSDK} from 'looksrare-js'
+import {Web3Wallets} from 'web3-wallets'
 
-const looksrare = new LooksRareSDK({
-    chainId: 4,
-    address: "0x9F7A946d935c8Efc7A8329C0d894A69bA241345A"
-})
+const {chainId, address} = new Web3Wallets({name:'metamask'})
+
+const looksrare = new LooksRareSDK({chainId,address})
 ```
 
 In the browser environment, only the chainId and address need to be configured，If you want to use the bash environment,
