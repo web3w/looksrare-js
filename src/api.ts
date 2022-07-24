@@ -1,6 +1,7 @@
 import {
-    APIConfig, OrderSide, sleep, BaseFetch
+    APIConfig, sleep, BaseFetch
 } from "./types";
+import QueryString from "querystring";
 
 export const LOOKS_API_KEY = ""
 
@@ -36,13 +37,13 @@ export class LooksRareAPI extends BaseFetch {
         }
     }
 
-// https://looksrare.github.io/api-docs/#/Orders/OrderController.getOrderNonce
+    // https://looksrare.github.io/api-docs/#/Orders/OrderController.getOrderNonce
     public async getOrdersNonce(collection: string, retries = 2): Promise<number> {
         try {
             // console.log("getOrdersNonce", `${this.apiBaseUrl}/orders/nonce/${collection}`)
             const json = await this.get(`/orders/nonce`, {address: collection}, {
                 headers: {
-                    // "X-Looks-Api-Key": this.apiKey || OPENSEA_API_KEY
+                    // "X-Looks-Api-Key": this.apiKey || LOOKS_API_KEY
                 }
             })
             if (!json.data) {
@@ -63,7 +64,6 @@ export class LooksRareAPI extends BaseFetch {
             if (json.message) {
                 throw new Error(json.message)
             }
-            debugger
             const orders: any[] = json.data
             return {
                 orders,
@@ -81,10 +81,9 @@ export class LooksRareAPI extends BaseFetch {
         try {
             const opts = {
                 headers: {
-                    // 'X-Looks-Api-Key': this.apiKey || OPENSEA_API_KEY
+                    'X-Looks-Api-Key': this.apiKey || LOOKS_API_KEY
                 }
             }
-            console.log(this.apiBaseUrl, this.apiKey)
             const result = await this.post(
                 `/orders`,
                 singSellOrder,
@@ -103,4 +102,36 @@ export class LooksRareAPI extends BaseFetch {
         }
     }
 
+    //https://docs.opensea.io/reference/getting-assets
+    public async getOwnerAssets(queryParams: { owner: string, chainId?: number, limit?: number }, retries = 2): Promise<any> {
+        const {owner, limit, chainId} = queryParams
+        const query = {
+            include_orders: false,
+            limit: limit || 1,
+            owner
+        }
+        const queryUrl = QueryString.stringify(query)
+        try {
+            //https://testnets-api.opensea.io/api/v1/assets?include_orders=false&limit=1&owner=0x0A56b3317eD60dC4E1027A63ffbE9df6fb102401
+            const apiUrl = {
+                1: 'https://api.opensea.io/api/v1/assets?',
+                4: 'https://testnets-api.opensea.io/api/v1/assets?'
+            }
+            const url = apiUrl[chainId || 1]
+            console.log("getAssets", `${url}${queryUrl}`)
+            const json = await this.getURL(`${url}${queryUrl}`)
+            return json.assets.map(val => ({
+                ...val.asset_contract,
+                royaltyFeePoints: Number(val.collection?.dev_seller_fee_basis_points),
+                protocolFeePoints: Number(val.collection?.opensea_seller_fee_basis_points),
+                royaltyFeeAddress: val.collection?.payout_address,
+                sell_orders: val.sell_orders,
+                token_id: val.token_id,
+                supports_wyvern: val.supports_wyvern
+            }))
+        } catch (error: any) {
+            this.throwOrContinue(error, retries)
+
+        }
+    }
 }

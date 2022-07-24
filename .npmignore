@@ -8,7 +8,7 @@
 /wallet/
 /config/
 /0x-js/
-/element-ex/
+/example/
 .eslintignore
 .eslintrc.json
 .gitignore

@@ -1,33 +1,47 @@
 // 一口价购买
 import {
-    addressesByNetwork,
-    MakerOrder,
-    MakerOrderWithSignature,
-    signMakerOrder,
-    RoyaltyFeeRegistryAbi,
+    Addresses,
+    addressesByNetwork, getMakerOrderTypeAndDomain,
     LooksRareExchangeAbi,
-    TransferSelectorNFTAbi,
+    MakerOrder,
+    MakerOrderWithSignature, MakerOrderWithVRS,
+    RoyaltyFeeRegistryAbi,
     RoyaltyFeeSetterAbi,
-    Addresses
+    signMakerOrder, TakerOrder,
+    TransferSelectorNFTAbi
 } from "@looksrare/sdk";
 import EventEmitter from 'events'
-import {Contract, ethers} from "ethers"
 import {
     AdjustOrderParams,
-    APIConfig, Asset,
+    APIConfig,
+    Asset,
     BuyOrderParams,
     CreateOrderParams,
-    ElementSchemaName, ETHToken,
-    ExchangetAgent, FeesInfo,
+    ElementSchemaName,
+    ExchangetAgent,
+    FeesInfo,
     MatchOrderOption,
     MatchOrdersParams,
     MatchParams,
     OrderSide,
-    SellOrderParams, tokenToAsset,
+    SellOrderParams,
+    Token,
+    tokenToAsset,
 } from 'web3-accounts'
-import {BigNumber, getProvider, LimitedCallSpec, WalletInfo} from 'web3-wallets'
+import {
+    BigNumber,
+    Contract,
+    ethers,
+    getProvider,
+    LimitedCallSpec,
+    NULL_ADDRESS,
+    splitECSignature,
+    utils,
+    WalletInfo
+} from 'web3-wallets'
 import {FeesABI, Web3Accounts} from "./types";
-import {LooksRareAPI, LOOKS_PROTOCOL_FEE_POINTS} from "./api";
+import {LOOKS_PROTOCOL_FEE_POINTS, LooksRareAPI} from "./api";
+import {Web3ABICoder} from "web3-abi-coder";
 
 export function toFixed(x): string | number {
     if (Math.abs(Number(x)) < 1.0) {
@@ -63,8 +77,10 @@ export class LooksRareSDK extends EventEmitter implements ExchangetAgent {
     public transferSelectorNFT: Contract
     public exchange: Contract
     public royaltyFeeGeter: Contract
+    public GasWarpperToken: Token
+    public coder: Web3ABICoder
 
-    // 初始化SDK
+    //init SDK
     constructor(wallet: WalletInfo, config?: APIConfig) {
         super()
         this.userAccount = new Web3Accounts(wallet)
@@ -75,8 +91,15 @@ export class LooksRareSDK extends EventEmitter implements ExchangetAgent {
         this.royaltyFeeRegistry = new Contract(contractAddresses.ROYALTY_FEE_REGISTRY, RoyaltyFeeRegistryAbi, this.userAccount.signer)
         this.transferSelectorNFT = new Contract(contractAddresses.TRANSFER_SELECTOR_NFT, TransferSelectorNFTAbi, this.userAccount.signer);
         this.exchange = new Contract(contractAddresses.EXCHANGE, LooksRareExchangeAbi, this.userAccount.signer)
+        this.coder = new Web3ABICoder(LooksRareExchangeAbi)
         this.royaltyFeeSetter = new Contract(contractAddresses.ROYALTY_FEE_SETTER, RoyaltyFeeSetterAbi, this.userAccount.signer)
         this.royaltyFeeGeter = new Contract(FeeGeterAddress[wallet.chainId], FeesABI, this.userAccount.signer)
+        this.GasWarpperToken = {
+            name: 'GasToken',
+            symbol: 'GasToken',
+            address: contractAddresses.WETH,
+            decimals: 18
+        }
     }
 
     async getOrderApprove(params: CreateOrderParams, side: OrderSide) {
@@ -91,7 +114,7 @@ export class LooksRareSDK extends EventEmitter implements ExchangetAgent {
         } else if (asset.schemaName.toLowerCase() == 'erc1155') {
             return this.userAccount.getAssetApprove(asset, this.contractAddresses.TRANSFER_MANAGER_ERC1155)
         } else {
-            return this.userAccount.getAssetApprove(asset, this.contractAddresses.EXECUTION_MANAGER)
+            return this.userAccount.getAssetApprove(asset, this.contractAddresses.EXCHANGE)
         }
     }
 
@@ -110,17 +133,30 @@ export class LooksRareSDK extends EventEmitter implements ExchangetAgent {
         return {callData, params: {}}
     }
 
-    async createSellOrder(params: SellOrderParams): Promise<MakerOrderWithSignature> {
+    private async createOrder(isOrderAsk: boolean, params: CreateOrderParams): Promise<MakerOrderWithSignature> {
         const {asset, startAmount, quantity, expirationTime, paymentToken} = params
-        const direction = OrderSide.Sell
+        const direction = isOrderAsk ? OrderSide.Sell : OrderSide.Buy
         let nonce = params.nonce
         if (typeof nonce == "undefined") {
             nonce = await this.api.getOrdersNonce(this.walletInfo.address)
         }
 
+        const decimals = paymentToken?.decimals && paymentToken?.address ? paymentToken.decimals : 18
+        const currency = !paymentToken?.address || paymentToken?.address == NULL_ADDRESS
+            ? this.contractAddresses.WETH
+            : paymentToken.address
+        const price = ethers.utils.parseUnits(toFixed(startAmount).toString(), decimals).toString()
+
+
         const {isApprove, balances, calldata} = await this.getOrderApprove(params, direction)
-        if (new BigNumber(balances).lt(quantity)) {
-            throw 'CreateSellOrder asset balances not enough'
+
+        if (direction == OrderSide.Buy && new BigNumber(balances).lt(price)) {
+            // const basePrice = utils.parseUnits(startAmount.toString(), paymentToken.decimals).gt(balances)
+            throw new Error('CreateBuyOrder asset balances not enough')
+        }
+
+        if (direction == OrderSide.Sell && new BigNumber(balances).lt(quantity)) {
+            throw new Error('CreateSellOrder asset balances not enough')
         }
         if (!isApprove && calldata) {
             const tx = await this.userAccount.ethSend(calldata).catch((err: any) => {
@@ -133,7 +169,6 @@ export class LooksRareSDK extends EventEmitter implements ExchangetAgent {
             }
         }
 
-
         const now = Math.floor(Date.now() / 1000);
         const {collection} = asset
         let fees = LOOKS_PROTOCOL_FEE_POINTS //protocolFeePoints
@@ -145,21 +180,19 @@ export class LooksRareSDK extends EventEmitter implements ExchangetAgent {
         // This variable is used to enforce a max slippage of 25% on all orders, if a collection change the fees to be >25%, the order will become invalid
         const minNetPriceRatio = 7500;
         if (!asset.tokenId) throw new Error("Token id undefind")
-        const decimals = paymentToken?.decimals && paymentToken?.address ? paymentToken.decimals : 18
-        const price = ethers.utils.parseUnits(toFixed(startAmount).toString(), decimals).toString()
 
         const makerOrder: MakerOrder = {
-            isOrderAsk: true,
+            isOrderAsk,
             signer: this.walletInfo.address,
             collection: asset.tokenAddress,
             price, // :warning: PRICE IS ALWAYS IN WEI :warning:
             tokenId: asset.tokenId, // Token id is 0 if you use the STRATEGY_COLLECTION_SALE strategy
             amount: quantity.toString(),
             strategy: this.contractAddresses.STRATEGY_STANDARD_SALE,
-            currency: this.contractAddresses.WETH,
+            currency: currency,
             nonce: nonce || 0,
             startTime: now,
-            endTime: expirationTime || now + 60 * 60 * 24 * 4, // 1 day validity
+            endTime: expirationTime || now + 60 * 60 * 24, // 1 day validity
             minPercentageToAsk: Math.max(netPriceRatio, minNetPriceRatio),
             params: [],
         };
@@ -169,14 +202,26 @@ export class LooksRareSDK extends EventEmitter implements ExchangetAgent {
             signer = new ethers.providers.Web3Provider(walletProvider).getSigner()
         }
 
+        const addr = await  signer.getAddress()
         const signature = await signMakerOrder(signer, this.walletInfo.chainId, makerOrder);
+        const {domain, type} = getMakerOrderTypeAndDomain(this.walletInfo.chainId);
+        const signerAddr = utils.verifyTypedData(domain, type, makerOrder, signature)
+
+        console.assert(signerAddr == this.walletInfo.address, "VerifyTypedData error")
 
         return {...makerOrder, signature}
     }
 
-    // TODO
-    async createBuyOrder(order: BuyOrderParams): Promise<any> {
-        return this.contracts.createBuyOrder(order)
+    async createSellOrder(params: SellOrderParams): Promise<MakerOrderWithSignature> {
+        return this.createOrder(true, params)
+    }
+
+    async createBuyOrder(params: BuyOrderParams): Promise<any> {
+        if (!params.paymentToken || params.paymentToken.address == NULL_ADDRESS) {
+            params.paymentToken = this.GasWarpperToken
+        }
+
+        return this.createOrder(false, params)
     }
 
     private async getSchemaName(collection: string) {
@@ -227,7 +272,7 @@ export class LooksRareSDK extends EventEmitter implements ExchangetAgent {
             quantity: quantity || Number(amount),
             listingTime: Number(startTime),
             expirationTime: expirationTime || Number(endTime),
-            paymentToken: paymentToken || ETHToken,
+            paymentToken: paymentToken || this.GasWarpperToken,
             nonce
         } as SellOrderParams
 
@@ -236,44 +281,82 @@ export class LooksRareSDK extends EventEmitter implements ExchangetAgent {
 
     // TODO
     async fulfillOrder(orderStr: string, option?: MatchOrderOption) {
-        const {mixedPayment} = option || {}
+        const {mixedPayment, metadata} = option || {}
         const order = JSON.parse(orderStr)
-        if (order.isOrderAsk) {
-            const takerBid = ""
-            const makerAsk = ""
-            return this.exchange.matchAskWithTakerBid(takerBid, makerAsk)
-        } else {
-            const takerAsk = ""
-            const makerBid = ""
+        //MakerOrderWithVRS
+        if (order.signature) {
+            //MakerOrderWithSignature
+            const signature = splitECSignature(order.signature)
+            order.v = signature.v
+            order.r = signature.r
+            order.s = signature.s
+            delete order.signature
+
+            order as MakerOrderWithVRS
+        }
+
+        if (order.isOrderAsk) { // sellOrder
+            const takerBid: TakerOrder = {
+                isOrderAsk: false,
+                taker: this.walletInfo.address,
+                price: order.price,
+                tokenId: order.tokenId,
+                minPercentageToAsk: '7500',
+                params: []
+            }
+            const makerAsk = order
+            if (order.currency.toLowerCase() == this.GasWarpperToken.address.toLowerCase()) {
+                //matchAskWithTakerBidUsingETHAndWETH pay ETH
+                return this.exchange.matchAskWithTakerBidUsingETHAndWETH(takerBid, makerAsk)
+            } else {
+                return this.exchange.matchAskWithTakerBid(takerBid, makerAsk)
+            }
+
+        } else { // buyOrder
+            const asset: Asset = {
+                tokenAddress: order.collection,
+                tokenId: order.tokenId.toString(),
+                schemaName: metadata || "ERC721"
+            }
+
+            let assetApprove
+            if (asset.schemaName.toLowerCase() == 'erc721') {
+                assetApprove = await this.userAccount.getAssetApprove(asset, this.contractAddresses.TRANSFER_MANAGER_ERC721)
+            } else if (asset.schemaName.toLowerCase() == 'erc1155') {
+                assetApprove = await this.userAccount.getAssetApprove(asset, this.contractAddresses.TRANSFER_MANAGER_ERC1155)
+            }
+            const {isApprove, calldata} = assetApprove
+            if (!isApprove && calldata) {
+                const tx = await this.userAccount.ethSend(calldata).catch((err: any) => {
+                    throw err
+                })
+                if (tx) {
+                    await tx.wait();
+                }
+            }
+
+            const takerAsk: TakerOrder = {
+                isOrderAsk: true,
+                taker: this.walletInfo.address,
+                price: order.price,
+                tokenId: order.tokenId,
+                minPercentageToAsk: '7500',
+                params: []
+            }
+            const makerBid = order
+            console.log(takerAsk, makerBid)
             return this.exchange.matchBidWithTakerAsk(takerAsk, makerBid)
         }
 
-        if (mixedPayment) {
-            const payAmount = ""
-            const takerBid = ""
-            const makerAsk = ""
-            return this.exchange.matchAskWithTakerBidUsingETHAndWETH(payAmount, takerBid, makerAsk)
-        }
+        // if (mixedPayment) {
+        //     const payAmount = ""
+        //     const takerBid = ""
+        //     const makerAsk = ""
+        //     return this.exchange.matchAskWithTakerBidUsingETHAndWETH(payAmount, takerBid, makerAsk)
+        // }
 
     }
 
-    async fulfillOrders(orders: MatchOrdersParams) {
-        const {orderList, mixedPayment} = orders
-        if (orderList.length == 0) {
-            throw new Error('LooksRare  fulfillOrders orders eq 0')
-        }
-
-        if (orderList.length == 1) {
-            const {orderStr, metadata, takerAmount, taker} = orderList[0]
-            const oneOption: MatchOrderOption = {
-                metadata,
-                takerAmount,
-                taker,
-                mixedPayment
-            }
-            return this.fulfillOrder(orderStr, oneOption)
-        }
-    }
 
     async cancelOrders(nonces: string[]) {
         if (nonces.length == 0) {
