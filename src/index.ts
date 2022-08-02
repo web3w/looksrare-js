@@ -134,7 +134,7 @@ export class LooksRareSDK extends EventEmitter implements ExchangetAgent {
     }
 
     private async createOrder(isOrderAsk: boolean, params: CreateOrderParams): Promise<MakerOrderWithSignature> {
-        const {asset, startAmount, quantity, expirationTime, paymentToken} = params
+        const {asset, startAmount, quantity, expirationTime, paymentToken,isCheckOrderApporve} = params
         const direction = isOrderAsk ? OrderSide.Sell : OrderSide.Buy
         let nonce = params.nonce
         if (typeof nonce == "undefined") {
@@ -148,26 +148,30 @@ export class LooksRareSDK extends EventEmitter implements ExchangetAgent {
         const price = ethers.utils.parseUnits(toFixed(startAmount).toString(), decimals).toString()
 
 
-        const {isApprove, balances, calldata} = await this.getOrderApprove(params, direction)
+        if(isCheckOrderApporve){
+            const {isApprove, balances, calldata} = await this.getOrderApprove(params, direction)
+            if (direction == OrderSide.Buy && new BigNumber(balances).lt(price)) {
+                // const basePrice = utils.parseUnits(startAmount.toString(), paymentToken.decimals).gt(balances)
+                throw new Error('CreateBuyOrder asset balances not enough')
+            }
 
-        if (direction == OrderSide.Buy && new BigNumber(balances).lt(price)) {
-            // const basePrice = utils.parseUnits(startAmount.toString(), paymentToken.decimals).gt(balances)
-            throw new Error('CreateBuyOrder asset balances not enough')
-        }
-
-        if (direction == OrderSide.Sell && new BigNumber(balances).lt(quantity)) {
-            throw new Error('CreateSellOrder asset balances not enough')
-        }
-        if (!isApprove && calldata) {
-            const tx = await this.userAccount.ethSend(calldata).catch((err: any) => {
-                throw err
-            })
-            if (tx) {
-                await tx.wait();
-                const info = await this.getOrderApprove(params, direction)
-                console.log("Asset  setApproved", asset, tx.hash, info.isApprove, info.balances);
+            if (direction == OrderSide.Sell && new BigNumber(balances).lt(quantity)) {
+                throw new Error('CreateSellOrder asset balances not enough')
+            }
+            if (!isApprove && calldata) {
+                const tx = await this.userAccount.ethSend(calldata).catch((err: any) => {
+                    throw err
+                })
+                if (tx) {
+                    await tx.wait();
+                    const info = await this.getOrderApprove(params, direction)
+                    console.log("Asset  setApproved", asset, tx.hash, info.isApprove, info.balances);
+                }
             }
         }
+
+
+
 
         const now = Math.floor(Date.now() / 1000);
         const {collection} = asset
