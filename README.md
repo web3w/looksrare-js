@@ -1,9 +1,7 @@
 # looksrare-js<!-- omit in toc -->
 
 SDK for the LooksRare protocol
-
-//https://github.com/LooksRare/looksrare-sdk
-//https://etherscan.io/address/0x59728544B08AB483533076417FbBB2fD0B17CE3a#writeContract
+https://web3w.github.io/looksrare-js/
 
 ## Installation
 

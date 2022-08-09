@@ -8,16 +8,16 @@ import {Web3Wallets} from 'web3-wallets';
 import {metamaskIcon, coinbaseIcon, walletConnectIcon} from "../js/config"
 
 import {walletAction} from "../js/walletAction";
-
+import {Buffer} from "buffer";
+window.Buffer = Buffer;
 export function WalletList() {
     const {setWallet} = useContext(Context);
 
     const selectWallet = async (item, action) => {
-
         const newWallet = new Web3Wallets({name: item.key, qrcodeModal: QRCodeModal})
         if (item.key == 'metamask') {
             const provider = newWallet.walletProvider
-            const accounts = await provider.enable() // enable ethereum
+            const accounts = await provider.connect() // enable ethereum
             setWallet(newWallet)
             provider.on('chainChanged', async (walletChainId) => {
                 console.log('Matemask chainChanged', walletChainId)
@@ -56,7 +56,7 @@ export function WalletList() {
         }
 
         if (item.key == 'coinbase') {
-            const accounts = await newWallet.walletProvider.enable() // enable ethereum
+            const accounts = await newWallet.walletProvider.connect() // enable ethereum
             setWallet(newWallet)
         }
 

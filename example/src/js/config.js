@@ -1,20 +1,8 @@
-import walletConnectIcon from "../images/walletconnect.png";
-import metamaskIcon from "../images/metamask.png";
-import coinbaseIcon from "../images/coinbaseWallet.svg";
+import walletConnectIcon from "../assets/images/walletconnect.png";
+import metamaskIcon from "../assets/images/metamask.png";
+import coinbaseIcon from "../assets/images/coinbaseWallet.svg";
 
 export {walletConnectIcon, metamaskIcon, coinbaseIcon}
-
-export const RPC_PROVIDER = {
-    4: 'https://api-test.element.market/api/v1/jsonrpc',
-    1: 'https://api.element.market/api/v1/jsonrpc',
-    56: 'https://api.element.market/api/bsc/jsonrpc',
-    97: 'https://api-test.element.market/api/bsc/jsonrpc',
-    137: 'https://api.element.market/api/polygon/jsonrpc',
-    80001: 'https://api-test.element.market/api/polygon/jsonrpc'
-}
-
-// export const  bridge="https://element-api-test.eossql.com/bridge/walletconnect"
-export const bridge = 'https://element-api.eossql.com/bridge/walletconnect'
 
 export const msg712sign = {
     types: {

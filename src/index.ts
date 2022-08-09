@@ -10,6 +10,7 @@ import {
     signMakerOrder, TakerOrder,
     TransferSelectorNFTAbi
 } from "@looksrare/sdk";
+import pkg from '../package.json'
 import EventEmitter from 'events'
 import {
     AdjustOrderParams,
@@ -79,10 +80,12 @@ export class LooksRareSDK extends EventEmitter implements ExchangetAgent {
     public royaltyFeeGeter: Contract
     public GasWarpperToken: Token
     public coder: Web3ABICoder
+    public version: string
 
     //init SDK
     constructor(wallet: WalletInfo, config?: APIConfig) {
         super()
+        this.version = pkg.version
         this.userAccount = new Web3Accounts(wallet)
         this.api = new LooksRareAPI({...config, chainId: wallet.chainId})
         this.walletInfo = wallet
@@ -148,7 +151,7 @@ export class LooksRareSDK extends EventEmitter implements ExchangetAgent {
         const price = ethers.utils.parseUnits(toFixed(startAmount).toString(), decimals).toString()
 
 
-        if(isCheckOrderApporve){
+        if (isCheckOrderApporve) {
             const {isApprove, balances, calldata} = await this.getOrderApprove(params, direction)
             if (direction == OrderSide.Buy && new BigNumber(balances).lt(price)) {
                 // const basePrice = utils.parseUnits(startAmount.toString(), paymentToken.decimals).gt(balances)
@@ -170,9 +173,6 @@ export class LooksRareSDK extends EventEmitter implements ExchangetAgent {
             }
         }
 
-
-
-
         const now = Math.floor(Date.now() / 1000);
         const {collection} = asset
         let fees = LOOKS_PROTOCOL_FEE_POINTS //protocolFeePoints
@@ -191,7 +191,7 @@ export class LooksRareSDK extends EventEmitter implements ExchangetAgent {
             collection: asset.tokenAddress,
             price, // :warning: PRICE IS ALWAYS IN WEI :warning:
             tokenId: asset.tokenId, // Token id is 0 if you use the STRATEGY_COLLECTION_SALE strategy
-            amount: quantity.toString(),
+            amount: quantity?.toString() || "1",
             strategy: this.contractAddresses.STRATEGY_STANDARD_SALE,
             currency: currency,
             nonce: nonce || 0,
@@ -201,12 +201,13 @@ export class LooksRareSDK extends EventEmitter implements ExchangetAgent {
             params: [],
         };
         const {walletProvider, walletSigner} = getProvider(this.walletInfo)
-        let signer = walletSigner as any
+        // @ts/ignore
+        let signer =  walletSigner //new  ethers.providers.Web3Provider(window.ethereum).getSigner(this.walletInfo.address)// walletSigner
         if (typeof window === 'undefined') {
             signer = new ethers.providers.Web3Provider(walletProvider).getSigner()
         }
+        // const addr = await  signer.getAddress()
 
-        const addr = await  signer.getAddress()
         const signature = await signMakerOrder(signer, this.walletInfo.chainId, makerOrder);
         const {domain, type} = getMakerOrderTypeAndDomain(this.walletInfo.chainId);
         const signerAddr = utils.verifyTypedData(domain, type, makerOrder, signature)
