@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/lookrare-js/static/css/main.b23ecec0.css",
+    "main.js": "/lookrare-js/static/js/main.f05164ed.js",
+    "static/media/metamask.png": "/lookrare-js/static/media/metamask.c6e8e59392f8bfc48238.png",
+    "index.html": "/lookrare-js/index.html",
+    "static/media/coinbaseWallet.svg": "/lookrare-js/static/media/coinbaseWallet.0a0007e4bb4981fa8f155b9fd1724092.svg"
+  },
+  "entrypoints": [
+    "static/css/main.b23ecec0.css",
+    "static/js/main.f05164ed.js"
+  ]
+}
