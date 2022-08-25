@@ -310,7 +310,7 @@ export class LooksRareSDK extends EventEmitter implements ExchangetAgent {
                 params: []
             }
             const makerAsk = order
-            if (order.currency.toLowerCase() == this.GasWarpperToken.address.toLowerCase()) {
+            if (order.currencyAddress.toLowerCase() == this.GasWarpperToken.address.toLowerCase()) {
                 //matchAskWithTakerBidUsingETHAndWETH pay ETH
                 return this.exchange.matchAskWithTakerBidUsingETHAndWETH(takerBid, makerAsk)
             } else {
