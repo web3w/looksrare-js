@@ -1,6 +1,6 @@
 {
   "name": "looksrare-js",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "Javascript SDK for the looksrare protocol",
   "main": "lib/index.js",
   "type": "lib/index.d.ts",
